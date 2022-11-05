@@ -10,24 +10,22 @@ import (
 	"time"
 )
 
-const (
-	HOST string = "https://app.bongasms.co.ke"
-)
+var defaultAPIHost string = "https://app.bongasms.co.ke"
 
-func GetAPIURL() string {
-	return HOST + "/api"
+func GetAPIURL(host string) string {
+	return host + "/api"
 }
 
-func GetBalanceURL() string {
-	return GetAPIURL() + "/check-credits"
+func GetBalanceURL(host string) string {
+	return GetAPIURL(host) + "/check-credits"
 }
 
-func GetSMSURL() string {
-	return GetAPIURL() + "/send-sms-v1"
+func GetSMSURL(host string) string {
+	return GetAPIURL(host) + "/send-sms-v1"
 }
 
-func GetDeliveryReportURL() string {
-	return GetAPIURL() + "/fetch-delivery"
+func GetDeliveryReportURL(host string) string {
+	return GetAPIURL(host) + "/fetch-delivery"
 }
 
 type SendSMSResponse struct {
@@ -96,10 +94,16 @@ type Service struct {
 	Key      string
 	ClientID int
 	Secret   string
+	apiHost  string
 }
 
 func NewService(key string, clientID int, secret string) Service {
-	return Service{Key: key, ClientID: clientID, Secret: secret}
+	return Service{
+		Key:      key,
+		ClientID: clientID,
+		Secret:   secret,
+		apiHost:  defaultAPIHost,
+	}
 }
 
 func (service Service) FetchDeliveryReport(messageId int) (DeliveryReportResponse, error) {
@@ -112,7 +116,7 @@ func (service Service) FetchDeliveryReport(messageId int) (DeliveryReportRespons
 	params.Add("key", service.Key)
 	params.Add("unique_id", strconv.Itoa(messageId))
 
-	request, err := http.NewRequest("GET", GetDeliveryReportURL(), nil)
+	request, err := http.NewRequest("GET", GetDeliveryReportURL(service.apiHost), nil)
 	if err != nil {
 		return response, err
 	}
@@ -150,7 +154,7 @@ func (service Service) CheckBalance() (CheckBalanceReponse, error) {
 	params.Add("apiClientID", strconv.Itoa(service.ClientID))
 	params.Add("key", service.Key)
 
-	request, err := http.NewRequest("GET", GetBalanceURL(), nil)
+	request, err := http.NewRequest("GET", GetBalanceURL(service.apiHost), nil)
 	if err != nil {
 		return response, err
 	}
@@ -189,7 +193,7 @@ func (service Service) SendSMS(serviceId string, msg string, msisdn string) (Sen
 	form.Add("txtMessage", msg)
 	form.Add("MSISDN", msisdn)
 
-	request, err := http.NewRequest("POST", GetSMSURL(), strings.NewReader(form.Encode()))
+	request, err := http.NewRequest("POST", GetSMSURL(service.apiHost), strings.NewReader(form.Encode()))
 	if err != nil {
 		return response, err
 	}
