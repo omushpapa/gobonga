@@ -29,25 +29,27 @@ func GetDeliveryReportURL(host string) string {
 	return GetAPIURL(host) + "/fetch-delivery"
 }
 
+type Status struct {
+	Code    int    `json:"status"`
+	Message string `json:"status_message"`
+}
+
 type SendSMSResponse struct {
-	Status        int    `json:"status"`
-	StatusMessage string `json:"status_message"`
-	UniqueId      int    `json:"unique_id"`
-	Credits       int    `json:"credits"`
+	Status
+	MessageId int `json:"unique_id"`
+	Credits   int `json:"credits"`
 }
 
 type CheckBalanceReponse struct {
-	Status        int    `json:"status"`
-	StatusMessage string `json:"status_message"`
-	ClientName    string `json:"client_name"`
-	ClientId      int    `json:"api_client_id"`
-	Credits       int    `json:"sms_credits"`
-	Threshold     int    `json:"sms_threshold"`
+	Status
+	ClientName string `json:"client_name"`
+	ClientId   int    `json:"api_client_id"`
+	Credits    int    `json:"sms_credits"`
+	Threshold  int    `json:"sms_threshold"`
 }
 
 type DeliveryReportResponse struct {
-	Status                    int       `json:"status"`
-	StatusMessage             string    `json:"status_message"`
+	Status
 	MessageId                 int       `json:"unique_id"`
 	DeliveryStatusDescription string    `json:"delivery_status_desc"`
 	DateReceived              time.Time `json:"date_received"`
@@ -57,8 +59,7 @@ type DeliveryReportResponse struct {
 
 func (r *DeliveryReportResponse) UnmarshalJSON(p []byte) error {
 	var i struct {
-		Status                    int    `json:"status"`
-		StatusMessage             string `json:"status_message"`
+		Status
 		MessageId                 int    `json:"unique_id"`
 		DeliveryStatusDescription string `json:"delivery_status_desc"`
 		DateReceived              string `json:"date_received"`
@@ -83,7 +84,6 @@ func (r *DeliveryReportResponse) UnmarshalJSON(p []byte) error {
 
 	r.DateReceived = t
 	r.Status = i.Status
-	r.StatusMessage = i.StatusMessage
 	r.MessageId = i.MessageId
 	r.DeliveryStatusDescription = i.DeliveryStatusDescription
 	r.Correlator = i.Correlator
@@ -128,7 +128,7 @@ func (service Service) FetchDeliveryReport(messageId int) (DeliveryReportRespons
 		return response, err
 	}
 
-	err = service.checkStatus(response.Status, response.StatusMessage)
+	err = service.checkStatus(response.Status)
 	return response, err
 }
 
@@ -152,7 +152,7 @@ func (service Service) CheckBalance() (CheckBalanceReponse, error) {
 	if err != nil {
 		return response, err
 	}
-	err = service.checkStatus(response.Status, response.StatusMessage)
+	err = service.checkStatus(response.Status)
 	return response, err
 }
 
@@ -179,13 +179,13 @@ func (service Service) SendSMS(serviceId string, msg string, msisdn string) (Sen
 	if err != nil {
 		return response, err
 	}
-	err = service.checkStatus(response.Status, response.StatusMessage)
+	err = service.checkStatus(response.Status)
 	return response, err
 }
 
-func (service Service) checkStatus(status int, msg string) error {
-	if status == 666 {
-		return fmt.Errorf(msg)
+func (service Service) checkStatus(status Status) error {
+	if status.Code == 666 {
+		return fmt.Errorf(status.Message)
 	}
 	return nil
 }
@@ -195,21 +195,25 @@ func (service Service) makeRequest(method string, path string, formData url.Valu
 	if len(formData) > 0 {
 		body = strings.NewReader(formData.Encode())
 	}
+
 	request, err := http.NewRequest(method, path, body)
 	if err != nil {
 		return nil, err
 	}
+
 	if method == "POST" {
 		request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	}
 	if len(params) > 0 {
 		request.URL.RawQuery = params.Encode()
 	}
+
 	client := http.Client{Timeout: 10 * time.Second}
 	res, err := client.Do(request)
 	if err != nil {
 		return nil, err
 	}
+
 	if res.StatusCode != 200 {
 		return res, fmt.Errorf(res.Status)
 	}

@@ -37,7 +37,7 @@ func main() {
 	if err != nil {
 		exitWithError(err)
 	}
-	fmt.Printf("status: %s\n", smsResponse.StatusMessage)
+	fmt.Printf("status: %s\n", smsResponse.Status.Message)
 
 	balanceResponse, err := service.CheckBalance()
 	if err != nil {
@@ -45,17 +45,17 @@ func main() {
 	}
 	fmt.Printf(
 		"status: %s. %d credits remaining for client %d:'%s' \n",
-		balanceResponse.StatusMessage, balanceResponse.Credits, balanceResponse.ClientId, balanceResponse.ClientName,
+		balanceResponse.Status.Message, balanceResponse.Credits, balanceResponse.ClientId, balanceResponse.ClientName,
 	)
 
-	messageId := smsResponse.UniqueId
+	messageId := smsResponse.MessageId
 	deliveryResponse, err := service.FetchDeliveryReport(messageId)
 	if err != nil {
 		exitWithError(err)
 	}
 	fmt.Printf(
 		"status: %s. message of id %d has reached status %s for contact %s as at %s\n",
-		deliveryResponse.StatusMessage, deliveryResponse.MessageId, deliveryResponse.DeliveryStatusDescription,
+		deliveryResponse.Status.Message, deliveryResponse.MessageId, deliveryResponse.DeliveryStatusDescription,
 		deliveryResponse.MSISDN, deliveryResponse.DateReceived.Format(time.RFC3339),
 	)
 }
