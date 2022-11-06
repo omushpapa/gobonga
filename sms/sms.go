@@ -3,6 +3,7 @@ package sms
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -116,31 +117,18 @@ func (service Service) FetchDeliveryReport(messageId int) (DeliveryReportRespons
 	params.Add("key", service.Key)
 	params.Add("unique_id", strconv.Itoa(messageId))
 
-	request, err := http.NewRequest("GET", GetDeliveryReportURL(service.apiHost), nil)
-	if err != nil {
-		return response, err
-	}
-
-	request.URL.RawQuery = params.Encode()
-	client := http.Client{}
-	res, err := client.Do(request)
+	res, err := service.makeRequest("GET", GetDeliveryReportURL(service.apiHost), nil, params)
 	if err != nil {
 		return response, err
 	}
 	defer res.Body.Close()
-
-	if res.StatusCode != 200 {
-		return response, fmt.Errorf(res.Status)
-	}
 
 	err = json.NewDecoder(res.Body).Decode(&response)
 	if err != nil {
 		return response, err
 	}
 
-	if response.Status == 666 {
-		return response, fmt.Errorf(response.StatusMessage)
-	}
+	err = service.checkStatus(response.Status, response.StatusMessage)
 	return response, err
 }
 
@@ -154,30 +142,17 @@ func (service Service) CheckBalance() (CheckBalanceReponse, error) {
 	params.Add("apiClientID", strconv.Itoa(service.ClientID))
 	params.Add("key", service.Key)
 
-	request, err := http.NewRequest("GET", GetBalanceURL(service.apiHost), nil)
-	if err != nil {
-		return response, err
-	}
-	request.URL.RawQuery = params.Encode()
-
-	client := http.Client{}
-	res, err := client.Do(request)
+	res, err := service.makeRequest("GET", GetBalanceURL(service.apiHost), nil, params)
 	if err != nil {
 		return response, err
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != 200 {
-		return response, fmt.Errorf(res.Status)
-	}
-
 	err = json.NewDecoder(res.Body).Decode(&response)
 	if err != nil {
 		return response, err
 	}
-	if response.Status == 666 {
-		return response, fmt.Errorf(response.StatusMessage)
-	}
+	err = service.checkStatus(response.Status, response.StatusMessage)
 	return response, err
 }
 
@@ -186,35 +161,57 @@ func (service Service) SendSMS(serviceId string, msg string, msisdn string) (Sen
 		response SendSMSResponse
 		err      error
 	)
-	form := url.Values{}
-	form.Add("apiClientID", strconv.Itoa(service.ClientID))
-	form.Add("key", service.Key)
-	form.Add("secret", service.Secret)
-	form.Add("txtMessage", msg)
-	form.Add("MSISDN", msisdn)
 
-	request, err := http.NewRequest("POST", GetSMSURL(service.apiHost), strings.NewReader(form.Encode()))
-	if err != nil {
-		return response, err
-	}
-	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	client := http.Client{Timeout: 10 * time.Second}
-	res, err := client.Do(request)
+	formData := url.Values{}
+	formData.Add("apiClientID", strconv.Itoa(service.ClientID))
+	formData.Add("key", service.Key)
+	formData.Add("secret", service.Secret)
+	formData.Add("txtMessage", msg)
+	formData.Add("MSISDN", msisdn)
+
+	res, err := service.makeRequest("POST", GetSMSURL(service.apiHost), formData, nil)
 	if err != nil {
 		return response, err
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != 200 {
-		return response, fmt.Errorf(res.Status)
-	}
-
 	err = json.NewDecoder(res.Body).Decode(&response)
 	if err != nil {
 		return response, err
 	}
-	if response.Status == 666 {
-		return response, fmt.Errorf(response.StatusMessage)
-	}
+	err = service.checkStatus(response.Status, response.StatusMessage)
 	return response, err
+}
+
+func (service Service) checkStatus(status int, msg string) error {
+	if status == 666 {
+		return fmt.Errorf(msg)
+	}
+	return nil
+}
+
+func (service Service) makeRequest(method string, path string, formData url.Values, params url.Values) (*http.Response, error) {
+	var body io.Reader = nil
+	if len(formData) > 0 {
+		body = strings.NewReader(formData.Encode())
+	}
+	request, err := http.NewRequest(method, path, body)
+	if err != nil {
+		return nil, err
+	}
+	if method == "POST" {
+		request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	}
+	if len(params) > 0 {
+		request.URL.RawQuery = params.Encode()
+	}
+	client := http.Client{Timeout: 10 * time.Second}
+	res, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode != 200 {
+		return res, fmt.Errorf(res.Status)
+	}
+	return res, nil
 }
