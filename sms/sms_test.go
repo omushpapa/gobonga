@@ -11,18 +11,20 @@ import (
 var (
 	nai, _          = time.LoadLocation("Africa/Nairobi")
 	now, _          = time.ParseInLocation("2006-01-02 15:04:05", "2022-11-05 15:34:45", nai)
+	apiHost         = "http://127.0.0.1"
+	apiURL          = apiHost + "/api"
 	service Service = Service{
 		Key:      "123",
 		ClientID: 123,
 		Secret:   "123",
-		apiHost:  "http://127.0.0.1",
+		apiHost:  apiHost,
 	}
 )
 
 func TestService_FetchDeliveryReport(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("http://127.0.0.1/api").
+	gock.New(apiURL).
 		Get("/fetch-delivery").
 		Reply(200).
 		JSON(map[string]interface{}{
@@ -35,55 +37,33 @@ func TestService_FetchDeliveryReport(t *testing.T) {
 			"msisdn":               "254712345678",
 		})
 
-	type args struct {
-		messageId int
+	messageId := 123
+	want := DeliveryReportResponse{
+		Status:                    Status{Code: 222, Message: "fetched delivery status"},
+		MessageId:                 123,
+		DeliveryStatusDescription: "DeliveredToTerminal",
+		DateReceived:              now,
+		Correlator:                "",
+		MSISDN:                    "254712345678",
 	}
-	tests := []struct {
-		name    string
-		fields  Service
-		args    args
-		want    DeliveryReportResponse
-		wantErr bool
-	}{
-		{
-			name:   "",
-			fields: service,
-			args:   args{messageId: 123},
-			want: DeliveryReportResponse{
-				Status:                    Status{Code: 222, Message: "fetched delivery status"},
-				MessageId:                 123,
-				DeliveryStatusDescription: "DeliveredToTerminal",
-				DateReceived:              now,
-				Correlator:                "",
-				MSISDN:                    "254712345678",
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := Service{
-				Key:      tt.fields.Key,
-				ClientID: tt.fields.ClientID,
-				Secret:   tt.fields.Secret,
-				apiHost:  tt.fields.apiHost,
-			}
-			got, err := service.FetchDeliveryReport(tt.args.messageId)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Service.FetchDeliveryReport() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Service.FetchDeliveryReport() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+
+	got, err := service.FetchDeliveryReport(messageId)
+	t.Run("", func(t *testing.T) {
+		if err != nil {
+			t.Errorf("Service.FetchDeliveryReport() error = %v", err)
+			return
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Service.FetchDeliveryReport() = %v, want %v", got, want)
+		}
+	})
+
 }
 
 func TestService_CheckBalance(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("http://127.0.0.1/api").
+	gock.New(apiURL).
 		Get("/check-credits").
 		Reply(200).
 		JSON(map[string]interface{}{
@@ -95,49 +75,30 @@ func TestService_CheckBalance(t *testing.T) {
 			"sms_threshold":  2,
 		})
 
-	tests := []struct {
-		name    string
-		fields  Service
-		want    CheckBalanceReponse
-		wantErr bool
-	}{
-		{
-			name:   "",
-			fields: service,
-			want: CheckBalanceReponse{
-				Status:     Status{Code: 222, Message: "fetched balance"},
-				ClientName: "Test Client",
-				ClientId:   123,
-				Credits:    45,
-				Threshold:  2,
-			},
-			wantErr: false,
-		},
+	want := CheckBalanceReponse{
+		Status:     Status{Code: 222, Message: "fetched balance"},
+		ClientName: "Test Client",
+		ClientId:   123,
+		Credits:    45,
+		Threshold:  2,
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := Service{
-				Key:      tt.fields.Key,
-				ClientID: tt.fields.ClientID,
-				Secret:   tt.fields.Secret,
-				apiHost:  tt.fields.apiHost,
-			}
-			got, err := service.CheckBalance()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Service.CheckBalance() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Service.CheckBalance() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+
+	got, err := service.CheckBalance()
+	t.Run("", func(t *testing.T) {
+		if err != nil {
+			t.Errorf("Service.CheckBalance() error = %v", err)
+			return
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Service.CheckBalance() = %v, want %v", got, want)
+		}
+	})
 }
 
 func TestService_SendSMS(t *testing.T) {
 	defer gock.Off()
 
-	gock.New("http://127.0.0.1/api").
+	gock.New(apiURL).
 		Post("/send-sms-v1").
 		Reply(200).
 		JSON(map[string]interface{}{
@@ -147,50 +108,26 @@ func TestService_SendSMS(t *testing.T) {
 			"credits":        127,
 		})
 
-	type args struct {
-		serviceId string
-		msg       string
-		msisdn    string
+	var (
+		serviceId string = ""
+		msg       string = "Test"
+		msisdn    string = "254712345678"
+	)
+
+	want := SendSMSResponse{
+		Status:    Status{Code: 222, Message: "message sent"},
+		MessageId: 789879,
+		Credits:   127,
 	}
-	tests := []struct {
-		name    string
-		fields  Service
-		args    args
-		want    SendSMSResponse
-		wantErr bool
-	}{
-		{
-			name:   "",
-			fields: service,
-			args: args{
-				serviceId: "",
-				msg:       "Test",
-				msisdn:    "254712345678",
-			},
-			want: SendSMSResponse{
-				Status:    Status{Code: 222, Message: "message sent"},
-				MessageId: 789879,
-				Credits:   127,
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := Service{
-				Key:      tt.fields.Key,
-				ClientID: tt.fields.ClientID,
-				Secret:   tt.fields.Secret,
-				apiHost:  tt.fields.apiHost,
-			}
-			got, err := service.SendSMS(tt.args.serviceId, tt.args.msg, tt.args.msisdn)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Service.SendSMS() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Service.SendSMS() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+
+	got, err := service.SendSMS(serviceId, msg, msisdn)
+	t.Run("", func(t *testing.T) {
+		if err != nil {
+			t.Errorf("Service.SendSMS() error = %v", err)
+			return
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Service.SendSMS() = %v, want %v", got, want)
+		}
+	})
 }
