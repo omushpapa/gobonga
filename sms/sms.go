@@ -1,3 +1,5 @@
+// Package sms provides an interface for interacting with the
+// sms resources of the BongaSMS API
 package sms
 
 import (
@@ -13,50 +15,78 @@ import (
 
 var defaultAPIHost string = "https://app.bongasms.co.ke"
 
+// GetAPIURL returns the URL for the API.
 func GetAPIURL(host string) string {
 	return host + "/api"
 }
 
+// GetBalanceURL returns the URL for fetching credit balance information.
 func GetBalanceURL(host string) string {
 	return GetAPIURL(host) + "/check-credits"
 }
 
+// GetSMSURL returns the URL for POSTing SMS messages.
 func GetSMSURL(host string) string {
 	return GetAPIURL(host) + "/send-sms-v1"
 }
 
+// GetDeliveryReportURL returns the URL for fetching the delivery report for a message.
 func GetDeliveryReportURL(host string) string {
 	return GetAPIURL(host) + "/fetch-delivery"
 }
 
+// Status is a representation of the status of the action performed on the server side
 type Status struct {
-	Code    int    `json:"status"`
+	// Code is a custom number indicating whether the action was a success or not.
+	// 222 represents success while 666 represents failure.
+	Code int `json:"status"`
+	// Message is verbose text describing the status of the action.
 	Message string `json:"status_message"`
 }
 
+// SendSMSResponse is a representation of the response returned when sending an SMS.
 type SendSMSResponse struct {
 	Status
+	// MessageId is a unique number assigned to the SMS.
 	MessageId int `json:"unique_id"`
-	Credits   int `json:"credits"`
+	// Credits represents the remaining balance.
+	// This is the number of messages that can be sent.
+	Credits int `json:"credits"`
 }
 
+// CheckBalanceReponse is a representation of the response returned when requesting credit balance.
 type CheckBalanceReponse struct {
 	Status
+	// ClientName is the name of the client in use.
 	ClientName string `json:"client_name"`
-	ClientId   int    `json:"api_client_id"`
-	Credits    int    `json:"sms_credits"`
-	Threshold  int    `json:"sms_threshold"`
+	// ClientId is the id assigned to the client in use.
+	ClientId int `json:"api_client_id"`
+	// Credits represents the remaining balance.
+	// This is the number of messages that can be sent.
+	Credits int `json:"sms_credits"`
+	// Threshold is the number at which an email notification will be sent when Credits go below.
+	Threshold int `json:"sms_threshold"`
 }
 
+// DeliveryReportResponse is a representation of the response returned when requesting for the delivery
+// status of an SMS
 type DeliveryReportResponse struct {
 	Status
-	MessageId                 int       `json:"unique_id"`
-	DeliveryStatusDescription string    `json:"delivery_status_desc"`
-	DateReceived              time.Time `json:"date_received"`
-	Correlator                string    `json:"correlator"`
-	MSISDN                    string    `json:"msisdn"`
+	// MessageId is the unique number assigned to the SMS.
+	MessageId int `json:"unique_id"`
+	// DeliveryStatusDescription is the delivery state at which the SMS is at.
+	DeliveryStatusDescription string `json:"delivery_status_desc"`
+	// DateReceived represents the date and time when the state given by the DeliveryStatusDescription
+	// was received.
+	DateReceived time.Time `json:"date_received"`
+	// Correlator is a value provided by the sender which identifies the message on the sender's side.
+	Correlator string `json:"correlator"`
+	// MSISDN is the contact to which the SMS was sent.
+	MSISDN string `json:"msisdn"`
 }
 
+// UnmarshalJSON is the method called when JSON is being unmarshalled.
+// It is implemented here to convert the date/time string received for DateReceived into and actual time.Time value.
 func (r *DeliveryReportResponse) UnmarshalJSON(p []byte) error {
 	var i struct {
 		Status
@@ -91,13 +121,15 @@ func (r *DeliveryReportResponse) UnmarshalJSON(p []byte) error {
 	return nil
 }
 
+// A Service calls the BongaSMS API resources and parses the response into structured formats.
 type Service struct {
-	Key      string
-	ClientID int
-	Secret   string
-	apiHost  string
+	Key      string // The API key given on registration
+	Secret   string // The API secret given on registration
+	ClientID int    // The ID of the client
+	apiHost  string // The link to the host
 }
 
+// NewService uses the given credentials and the defaultAPIHost to configure a new Service which is then returned.
 func NewService(key string, clientID int, secret string) Service {
 	return Service{
 		Key:      key,
@@ -107,6 +139,8 @@ func NewService(key string, clientID int, secret string) Service {
 	}
 }
 
+// FetchDeliveryReport interacts with the resource for retrieving the delivery report of an SMS
+// and parses the response into a DeliveryReportResponse.
 func (service Service) FetchDeliveryReport(messageId int) (DeliveryReportResponse, error) {
 	var (
 		response DeliveryReportResponse
@@ -132,6 +166,8 @@ func (service Service) FetchDeliveryReport(messageId int) (DeliveryReportRespons
 	return response, err
 }
 
+// CheckBalance interacts with the resource for retrieving the credit balance
+// and parses the response into a CheckBalanceReponse.
 func (service Service) CheckBalance() (CheckBalanceReponse, error) {
 	var (
 		response CheckBalanceReponse
@@ -156,6 +192,7 @@ func (service Service) CheckBalance() (CheckBalanceReponse, error) {
 	return response, err
 }
 
+// SendSMS interacts with the resource for sending an SMS and parses the response into a SendSMSResponse.
 func (service Service) SendSMS(serviceId string, msg string, msisdn string) (SendSMSResponse, error) {
 	var (
 		response SendSMSResponse
