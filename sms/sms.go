@@ -151,7 +151,7 @@ func (service Service) FetchDeliveryReport(messageId int) (DeliveryReportRespons
 	params.Add("key", service.Key)
 	params.Add("unique_id", strconv.Itoa(messageId))
 
-	res, err := service.makeRequest("GET", GetDeliveryReportURL(service.apiHost), nil, params)
+	res, err := service.makeRequest(http.MethodGet, GetDeliveryReportURL(service.apiHost), nil, params)
 	if err != nil {
 		return response, err
 	}
@@ -178,7 +178,7 @@ func (service Service) CheckBalance() (CheckBalanceReponse, error) {
 	params.Add("apiClientID", strconv.Itoa(service.ClientID))
 	params.Add("key", service.Key)
 
-	res, err := service.makeRequest("GET", GetBalanceURL(service.apiHost), nil, params)
+	res, err := service.makeRequest(http.MethodGet, GetBalanceURL(service.apiHost), nil, params)
 	if err != nil {
 		return response, err
 	}
@@ -206,7 +206,7 @@ func (service Service) SendSMS(serviceId string, msg string, msisdn string) (Sen
 	formData.Add("txtMessage", msg)
 	formData.Add("MSISDN", msisdn)
 
-	res, err := service.makeRequest("POST", GetSMSURL(service.apiHost), formData, nil)
+	res, err := service.makeRequest(http.MethodPost, GetSMSURL(service.apiHost), formData, nil)
 	if err != nil {
 		return response, err
 	}
